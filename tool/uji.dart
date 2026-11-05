@@ -28,5 +28,6 @@ Future<void> main() async {
   assert(perpus.kembalikan(p, tanggal: DateTime(2026, 10, 18)) == 3000);
   assert(b.tersedia && perpus.pinjamanAktif.isEmpty);
   await perpus.tutup();
-  print('Pengujian OOP Library System: LULUS (jalankan dengan --enable-asserts)');
+  print(
+      'Pengujian OOP Library System: LULUS (jalankan dengan --enable-asserts)');
 }

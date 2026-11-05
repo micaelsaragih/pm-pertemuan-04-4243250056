@@ -36,7 +36,8 @@ class Perpustakaan {
     }
     final jumlah = _aktif.where((p) => p.anggota.id == anggota.id).length;
     if (jumlah >= anggota.maksPinjam) {
-      throw PeminjamanGagal('${anggota.nama} sudah mencapai batas $jumlah pinjaman');
+      throw PeminjamanGagal(
+          '${anggota.nama} sudah mencapai batas $jumlah pinjaman');
     }
     koleksi.tandaiDipinjam();
     final pinjaman = Peminjaman(anggota, koleksi, tanggal ?? DateTime.now());
@@ -52,7 +53,8 @@ class Perpustakaan {
     final denda = pinjaman.dendaPada(tanggal ?? DateTime.now());
     pinjaman.koleksi.tandaiDikembalikan();
     _aktif.remove(pinjaman);
-    _log.add('${pinjaman.anggota.nama} mengembalikan "${pinjaman.koleksi.judul}"');
+    _log.add(
+        '${pinjaman.anggota.nama} mengembalikan "${pinjaman.koleksi.judul}"');
     return denda;
   }
 

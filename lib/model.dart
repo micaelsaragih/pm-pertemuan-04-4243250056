@@ -57,11 +57,11 @@ class Skripsi extends Koleksi {
 
 // Exhaustive switch: compiler mengingatkan jika ada subtipe baru.
 String ikon(Koleksi koleksi) => switch (koleksi) {
-  EBook() => '📱',
-  Buku() => '📕',
-  Majalah() => '📰',
-  Skripsi() => '🎓',
-};
+      EBook() => '📱',
+      Buku() => '📕',
+      Majalah() => '📰',
+      Skripsi() => '🎓',
+    };
 
 class Anggota {
   final String id;
