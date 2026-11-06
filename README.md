@@ -16,31 +16,66 @@ Modul Pertemuan 4 bagian B–C (halaman 16–20), materi A.1–A.11, dan slide P
 
 ## Deskripsi
 
-Program Dart console yang mensimulasikan sistem perpustakaan digital. Sistem mengelola koleksi buku, majalah, e-book, dan skripsi dengan fitur peminjaman asinkron, penanganan exception, notifikasi melalui Stream, dan perhitungan denda keterlambatan.
+Program Dart console yang mensimulasikan sistem perpustakaan digital. Sistem mengelola koleksi buku, majalah, e-book, dan skripsi dengan fitur peminjaman asinkron, penanganan exception, notifikasi kejadian melalui Stream, dan perhitungan denda keterlambatan.
 
 ## Fitur Utama
 
-### Penerapan OOP
+### Hierarki Koleksi
 
-- **Hierarki sealed class**: `Koleksi` sebagai sealed class dengan turunan `Buku`, `Majalah`, `EBook`, dan `Skripsi`.
-- **Enkapsulasi**: Field `_dipinjam` dan `_riwayat` dikelola secara privat dalam `lib/model.dart` dengan method publik untuk mengubah status.
-- **Polimorfisme**: Semua koleksi diproses melalui antarmuka `Koleksi` yang sama; setiap subclass mengimplementasikan perilaku berbeda untuk `masaPinjam`, `jenis`, dan `ikon()`.
-- **Mixin**: `EBook` menggunakan mixin `BisaDiunduh` yang menambahkan kemampuan unduh tanpa mengubah hierarki kelas.
-- **Exception kustom**: `PeminjamanGagal` menangani kasus tidak tersedia, batas pinjaman, kode salah, dan skripsi hanya baca di tempat.
+- `sealed class Koleksi` dengan empat subclass: `Buku`, `Majalah`, `EBook`, dan `Skripsi`.
+- Setiap subclass mengimplementasikan getter `lamaPinjam` dan method `info()` sesuai jenisnya.
+- `EBook extends Buku with BisaDiunduh` — mixin menambahkan getter `url` dan method `unduh()`.
+- `Skripsi` memiliki `lamaPinjam = 0` dan hanya boleh dibaca di tempat.
 
-### Penerapan Async Programming
+### Enkapsulasi
 
-- Peminjaman dilakukan dengan `Future` dan `async/await`, mensimulasikan proses verifikasi yang tidak sinkron.
-- Kejadian peminjaman dan pengembalian dicatat secara real-time melalui `StreamController.broadcast()`.
+- Field `_dipinjam` pada `Koleksi` bersifat privat di tingkat library Dart.
+- Kode di luar `lib/model.dart` tidak dapat mengakses `_dipinjam` secara langsung.
+- Perubahan status dilakukan melalui method publik `tandaiDipinjam()` dan `tandaiDikembalikan()`.
+- `Perpustakaan` menyimpan daftar koleksi dan peminjaman aktif secara privat; akses luar melalui getter `koleksiTersedia` dan `pinjamanAktif`.
+
+### Async Programming
+
+- Method `pinjam()` di `Perpustakaan` menggunakan `async/await` dengan `Future.delayed` untuk mensimulasikan proses verifikasi.
+- Setiap kejadian pinjam dan kembali dicatat melalui `StreamController.broadcast()` — listener pos jaga menerima log secara real-time.
 - Denda dihitung Rp1.000/hari setelah jatuh tempo.
 
-### Tiga Tantangan Praktikum
+### Exception
 
-1. **Sealed class exhaustive switch**: Menggunakan `sealed class Koleksi` bersama fungsi `ikon()` dengan ekspresi `switch`. Jika ada subclass baru yang belum dicakup, Dart analyzer langsung menandai switch sebagai non-exhaustive — compile-time safety tanpa perlu runtime check.
+- `PeminjamanGagal` menangani empat kondisi: kode tidak ditemukan, koleksi sedang dipinjam, batas pinjam anggota terlampaui, dan skripsi tidak boleh dipinjam.
 
-2. **Mixin BisaDiunduh**: `EBook` menggabungkan kemampuan unduh lewat `with BisaDiunduh`. Mixin ini menambahkan method `unduh()` dan field `ukuranMB` tanpa mempengaruhi hierarki `Buku → EBook`. Masa pinjam `EBook` di-override menjadi 30 hari.
+## Tiga Tantangan Praktikum
 
-3. **Exception bertingkat dalam async**: Method `pinjam()` di `Perpustakaan` menggunakan `async/await` sekaligus try-catch untuk menangani beberapa kondisi gagal (kode salah, sedang dipinjam, batas pinjam terlampaui, skripsi hanya baca di tempat) dalam satu alur kontrol yang bersih.
+### Tantangan 1 — Pemisahan Model dan Layanan
+
+Implementasi awal menempatkan semua kode dalam satu file. Tantangannya adalah memindahkan model ke `lib/model.dart` dan layanan ke `lib/perpustakaan.dart` tanpa mengekspos field internal.
+
+Masalah utama: field `_dipinjam` pada `sealed class Koleksi` bersifat privat di tingkat **library**, bukan kelas. Artinya `lib/perpustakaan.dart` tidak dapat mengakses `_dipinjam` secara langsung karena berada di library berbeda.
+
+Solusi: menambahkan method publik `tandaiDipinjam()` dan `tandaiDikembalikan()` pada `Koleksi`. Method ini menjadi satu-satunya jalur untuk mengubah status pinjam, sehingga enkapsulasi tetap terjaga — tidak ada kode di luar model yang dapat mengubah `_dipinjam` secara sembarangan.
+
+### Tantangan 2 — Kelas Skripsi
+
+Menambahkan `Skripsi extends Koleksi` dengan perilaku khusus:
+
+- `lamaPinjam` bernilai `0` karena skripsi tidak dipinjamkan.
+- `info()` menyertakan keterangan `(baca di tempat)` dan nama penulis.
+- Di `Perpustakaan.pinjam()`, percobaan meminjam skripsi langsung melempar `PeminjamanGagal('skripsi hanya boleh dibaca di tempat')` sebelum pengecekan lainnya, sehingga penolakan bersifat eksplisit dan tidak bergantung pada nilai `lamaPinjam`.
+
+### Tantangan 3 — Sealed Class dan Pattern Matching
+
+Menggunakan `sealed class Koleksi` bersama fungsi top-level `ikon()` yang memanfaatkan switch expression:
+
+```dart
+String ikon(Koleksi koleksi) => switch (koleksi) {
+      EBook() => '📱',
+      Buku() => '📕',
+      Majalah() => '📰',
+      Skripsi() => '🎓',
+    };
+```
+
+Karena `Koleksi` bersifat `sealed`, Dart analyzer mengetahui secara tepat seluruh subclass yang mungkin. Jika ada subclass baru yang ditambahkan ke `lib/model.dart` tetapi belum dicakup dalam switch di atas, analyzer langsung menandai switch sebagai *non-exhaustive* pada waktu kompilasi — tanpa perlu menjalankan program. Ini merupakan jaminan keamanan tipe yang tidak bisa diperoleh dari kelas biasa.
 
 ## Cara Menjalankan
 
@@ -78,8 +113,8 @@ dart --enable-asserts run tool/uji.dart
 | Lokasi | Fungsi |
 |---|---|
 | `bin/pm_p4_4243250056.dart` | Demonstrasi kasus lengkap dan output |
-| `lib/model.dart` | Hierarki koleksi, anggota, peminjaman, exception |
-| `lib/perpustakaan.dart` | Pengelolaan koleksi, peminjaman async, log Stream |
+| `lib/model.dart` | Hierarki koleksi (`sealed class`), mixin `BisaDiunduh`, `Anggota`, `Peminjaman`, `PeminjamanGagal`, fungsi `ikon()` |
+| `lib/perpustakaan.dart` | Layanan perpustakaan, peminjaman async, log Stream |
 | `examples/a1_a3_oop.dart` | Contoh OOP dasar — A.1 dan A.3 |
 | `examples/a5_a6_enum_generics.dart` | Contoh enum dan generics — A.5 dan A.6 |
 | `examples/a9_future.dart` | Contoh Future async — A.9 |
@@ -100,31 +135,32 @@ Menampilkan proses penambahan koleksi, peminjaman berhasil, jatuh tempo, dan per
 
 ![Penolakan Peminjaman](docs/02-penolakan-skripsi.png)
 
-Menampilkan kode salah, buku sedang dipinjam, batas pinjam terlampaui, dan penolakan skripsi (hanya boleh dibaca di tempat).
+Menampilkan kode tidak ditemukan, buku sedang dipinjam, batas pinjam terlampaui, dan penolakan skripsi (hanya boleh dibaca di tempat).
 
 ### Screenshot 3 — Contoh Materi dan Pengujian
 
 ![Hasil Pengujian](docs/03-contoh-dan-pengujian.png)
 
-Menampilkan hasil `dart analyze` bersih, contoh-contoh materi A.1–A.11, dan hasil skrip pengujian `tool/uji.dart`.
+Menampilkan hasil `dart analyze` bersih (no issues found), contoh-contoh materi A.1–A.11, dan hasil skrip pengujian `tool/uji.dart`.
 
 ## Pengujian
 
 Skrip `tool/uji.dart` memverifikasi:
 
-- Peminjaman berhasil dan pengembalian koleksi.
-- Exception `PeminjamanGagal` untuk tiap kasus gagal.
-- Perhitungan denda keterlambatan.
-- Fungsionalitas mixin `BisaDiunduh` pada `EBook`.
-- Exhaustiveness sealed class melalui fungsi `ikon()`.
+- Getter `lamaPinjam` tiap subclass: `Buku` = 14 hari, `Majalah` = 7 hari, `EBook` = 30 hari, `Skripsi` = 0 hari.
+- Fungsi `ikon()` mengembalikan simbol yang tepat untuk tiap subclass.
+- Peminjaman berhasil dan tanggal `jatuhTempo` dihitung dengan benar.
+- `PeminjamanGagal` dilempar untuk empat kasus: koleksi sedang dipinjam, batas pinjam anggota, kode tidak ditemukan, dan skripsi.
+- Denda keterlambatan dihitung Rp1.000/hari (3 hari terlambat = Rp3.000).
+- Koleksi kembali tersedia setelah dikembalikan.
 
 Hasil pengujian: **LULUS** (tidak ada error, semua assertion terpenuhi).
 
 ## Refleksi
 
-1. **extends vs implements vs with**: `extends` untuk mewarisi perilaku (contoh `EBook extends Buku`); `implements` untuk memenuhi kontrak seperti implementasi `Exception`; `with` untuk menambahkan perilaku yang dapat digunakan ulang seperti `BisaDiunduh`.
-2. **await dan event loop**: `await` menunda kelanjutan fungsi `pinjam`, tetapi event loop masih dapat menangani pekerjaan async lain — program tidak memblokir seluruh thread.
-3. **Future vs Stream**: `Future` memberikan satu hasil di masa depan (misalnya respons login); `Stream` memberikan serangkaian event (misalnya pembaruan log peminjaman).
+1. **extends vs implements vs with**: `extends` untuk mewarisi perilaku (`EBook extends Buku`); `implements` untuk memenuhi kontrak seperti `PeminjamanGagal implements Exception`; `with` untuk menambahkan perilaku yang dapat digunakan ulang seperti `BisaDiunduh`.
+2. **await dan event loop**: `await` di dalam `pinjam()` menunda kelanjutan fungsi sampai `Future.delayed` selesai, tetapi event loop tetap berjalan — program tidak memblokir seluruh thread.
+3. **Future vs Stream**: `Future` menghasilkan satu nilai di masa depan (contoh: hasil `pinjam()`); `Stream` menghasilkan serangkaian nilai (contoh: log kejadian perpustakaan yang terus mengalir).
 
 ## Pernyataan Penggunaan AI
 
